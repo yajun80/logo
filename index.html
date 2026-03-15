@@ -379,4 +379,392 @@
         }
 
         .convert-btn {
-            background: linear-gradient(135deg, #7B2CBF, #9C27B
+            background: linear-gradient(135deg, #7B2CBF, #9C27B0);
+            border: none;
+            color: white;
+            padding: 14px 36px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(138, 43, 226, 0.25);
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .convert-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .tips {
+            background: #fff9e6;
+            border-left: 4px solid #ffb74d;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #553700;
+        }
+
+        /* 去掉了底部导航和版权，因此不需要固定定位的样式，这里清除旧样式干扰 */
+        .toast {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translate(-50%, 200%);
+            background: #2b1449;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 8px 24px rgba(138, 43, 226, 0.25);
+            transition: 0.3s;
+            z-index: 9999;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            transform: translate(-50%, 0);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="bg-api"></div>
+
+<div class="container">
+    <div class="header">
+        <h1><span>🎬</span> TXT ↔ M3U 双向转换 <span>📺</span></h1>
+        <p>纯净版 · 无导航链接</p>
+    </div>
+
+    <div class="mode-settings-bar">
+        <div class="mode-tabs">
+            <button class="mode-btn active-mode" id="modeTxt2M3uBtn" onclick="switchMode('txt2m3u')">📄 TXT → M3U</button>
+            <button class="mode-btn" id="modeM3u2TxtBtn" onclick="switchMode('m3u2txt')">🎵 M3U → TXT</button>
+        </div>
+
+        <!-- EPG 单独一行，使用指定地址 https://epg1.indevs.in/  -->
+        <div class="epg-row">
+            <label>EPG地址</label>
+            <input type="text" id="epgUrl" value="https://epg1.indevs.in/" placeholder="输入EPG源URL">
+        </div>
+
+        <!-- 台标、分组 强制下一行 且台标logo地址模版已改为 https://logo1.indevs.in/{name}.png -->
+        <div class="options-row">
+            <div class="setting-item">
+                <input type="checkbox" id="addLogo" checked>
+                <label>台标</label>
+            </div>
+            <div class="setting-item">
+                <input type="checkbox" id="keepGroup" checked>
+                <label>分组</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    📥 输入 <span class="panel-badge" id="inputFormatBadge">TXT</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="icon-btn" onclick="loadExample()">📋 示例</button>
+                    <button class="icon-btn" onclick="clearInput()">🗑️ 清空</button>
+                </div>
+            </div>
+            <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📂</div>
+                <div class="upload-text">点击或拖拽上传</div>
+                <div class="upload-hint" id="uploadHint">支持 .txt (频道名,URL) 或 .m3u</div>
+                <div id="fileDisplay"></div>
+            </div>
+            <input type="file" id="fileInput" onchange="handleFile(this.files[0])">
+
+            <div class="editor-wrapper">
+                <div class="editor-hint" id="inputHint">
+                    格式：每行 <code>频道名,URL</code> ，可使用 <code>分组,#genre#</code>
+                </div>
+                <textarea id="inputEditor" placeholder="在此粘贴或输入..."></textarea>
+                <div class="char-count" id="inputCount">0 字符</div>
+            </div>
+        </div>
+
+        <div class="panel output">
+            <div class="panel-header">
+                <div class="panel-title">
+                    📤 转换结果 <span class="panel-badge" id="outputFormatBadge">M3U</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="icon-btn" onclick="copyOutput()">📋 复制</button>
+                </div>
+            </div>
+            <div class="editor-wrapper">
+                <div class="editor-hint" id="outputHint">转换后的内容</div>
+                <textarea id="outputEditor" readonly placeholder="转换后显示..."></textarea>
+                <div class="char-count" id="outputCount">0 字符 | 0 频道</div>
+            </div>
+            <div class="download-bar" id="downloadBar" style="display: none;">
+                <button class="btn-primary" onclick="downloadFile()">💾 下载文件</button>
+                <button class="btn-secondary" onclick="previewOutput()">👁️ 预览</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="convert-divider">
+        <button class="convert-btn" id="convertBtn" onclick="convert()">⚡ 开始转换</button>
+    </div>
+
+    <div class="tips">
+        <strong>💡 分组逻辑完全保留：</strong> TXT中使用 <code>分组名,#genre#</code> 声明分组；M3U中使用 <code>group-title</code>。转换时会智能保留/还原分组。 台标源已更新为 <code>https://logo1.indevs.in/{name}.png</code>
+    </div>
+</div>
+
+<!-- 移除了 .top-nav, .footer-links, .copyright 整个区块，只保留提示框 -->
+<div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg">操作成功</span></div>
+
+<script>
+    (function() {
+        let currentMode = 'txt2m3u';
+        let currentFileName = 'live';
+
+        const examples = {
+            txt2m3u: `央视频道,#genre#\nCCTV1,http://example.com/cctv1.m3u8\nCCTV2,http://example.com/cctv2.m3u8\n卫视频道,#genre#\n湖南卫视,http://example.com/hunan.m3u8\n浙江卫视,http://example.com/zj.m3u8`,
+            m3u2txt: `#EXTM3U x-tvg-url="https://epg1.indevs.in/"\n#EXTINF:-1 tvg-id="CCTV1" group-title="央视频道",CCTV1\nhttp://example.com/cctv1.m3u8\n#EXTINF:-1 tvg-id="CCTV2" group-title="央视频道",CCTV2\nhttp://example.com/cctv2.m3u8\n#EXTINF:-1 tvg-id="Hunan" group-title="卫视频道",湖南卫视\nhttp://example.com/hunan.m3u8`
+        };
+
+        function updateUImode() {
+            const isTxt = currentMode === 'txt2m3u';
+            document.getElementById('inputFormatBadge').innerText = isTxt ? 'TXT' : 'M3U';
+            document.getElementById('outputFormatBadge').innerText = isTxt ? 'M3U' : 'TXT';
+            document.getElementById('uploadHint').innerText = isTxt ? '支持 .txt (频道名,URL)' : '支持 .m3u/.m3u8';
+            document.getElementById('inputHint').innerHTML = isTxt ? 
+                '格式：每行 <code>频道名,URL</code> ，可使用 <code>分组,#genre#</code>' : 
+                '标准M3U，自动提取group-title和频道名';
+            document.getElementById('outputHint').innerText = isTxt ? '转换后的M3U格式' : '转换后的TXT格式 (保留分组)';
+
+            document.getElementById('modeTxt2M3uBtn').classList.toggle('active-mode', isTxt);
+            document.getElementById('modeM3u2TxtBtn').classList.toggle('active-mode', !isTxt);
+        }
+
+        window.switchMode = function(mode) {
+            currentMode = mode;
+            updateUImode();
+            clearOutput();
+            showToast(`已切换为 ${mode==='txt2m3u'?'TXT→M3U':'M3U→TXT'}`, 'info');
+        };
+
+        function showToast(msg, type='success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.className = 'toast show';
+            if (type==='error') toast.classList.add('error');
+            else if (type==='info') toast.classList.add('info');
+            else { toast.classList.remove('error','info'); }
+            setTimeout(()=> toast.classList.remove('show'), 2800);
+        }
+        window.showToast = showToast;
+
+        window.handleFile = function(file) {
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isValid = (currentMode==='txt2m3u' && ext==='txt') || (currentMode!=='txt2m3u' && (ext==='m3u'||ext==='m3u8'));
+            if (!isValid) {
+                showToast(`请上传 ${currentMode==='txt2m3u'?'.txt':'.m3u/.m3u8'} 文件`, 'error');
+                return;
+            }
+            currentFileName = file.name.replace(/\.[^/.]+$/, '');
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('inputEditor').value = e.target.result;
+                updateCharCount();
+                document.getElementById('fileDisplay').innerHTML = `<span class="file-tag">${file.name} <span class="remove" onclick="removeFile(event)">×</span></span>`;
+                showToast('文件加载成功');
+            };
+            reader.readAsText(file);
+        };
+
+        window.removeFile = function(e) {
+            e.stopPropagation();
+            document.getElementById('fileDisplay').innerHTML = '';
+            document.getElementById('fileInput').value = '';
+        };
+
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#b77cf2'; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = '#cba2f5'; };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#cba2f5';
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        };
+
+        document.getElementById('inputEditor').addEventListener('input', updateCharCount);
+        function updateCharCount() {
+            const len = document.getElementById('inputEditor').value.length;
+            document.getElementById('inputCount').innerText = len + ' 字符';
+        }
+
+        window.loadExample = function() {
+            document.getElementById('inputEditor').value = examples[currentMode];
+            updateCharCount();
+            showToast('已加载示例');
+        };
+        window.clearInput = function() {
+            document.getElementById('inputEditor').value = '';
+            document.getElementById('fileDisplay').innerHTML = '';
+            document.getElementById('fileInput').value = '';
+            updateCharCount();
+            clearOutput();
+        };
+        function clearOutput() {
+            document.getElementById('outputEditor').value = '';
+            document.getElementById('outputCount').innerText = '0 字符 | 0 频道';
+            document.getElementById('downloadBar').style.display = 'none';
+        }
+
+        window.convert = function() {
+            const input = document.getElementById('inputEditor').value.trim();
+            if (!input) { showToast('请输入内容', 'error'); return; }
+
+            const btn = document.getElementById('convertBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ 转换中...';
+
+            setTimeout(() => {
+                try {
+                    let output = '', channelCount = 0;
+                    if (currentMode === 'txt2m3u') {
+                        const res = convertTxtToM3U(input);
+                        output = res.content;
+                        channelCount = res.count;
+                    } else {
+                        const res = convertM3UToTxt(input);
+                        output = res.content;
+                        channelCount = res.count;
+                    }
+                    document.getElementById('outputEditor').value = output;
+                    document.getElementById('outputCount').innerText = output.length + ' 字符 | ' + channelCount + ' 频道';
+                    document.getElementById('downloadBar').style.display = 'flex';
+                    showToast(`转换完成，共 ${channelCount} 频道`);
+                } catch (err) {
+                    showToast('转换失败: ' + err.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '⚡ 开始转换';
+                }
+            }, 200);
+        }
+
+        function convertTxtToM3U(txt) {
+            // 使用新的 EPG 地址 (已替换)
+            const epg = document.getElementById('epgUrl').value || 'https://epg1.indevs.in/';
+            const addLogo = document.getElementById('addLogo').checked;
+            const keepGroup = document.getElementById('keepGroup').checked;
+            const lines = txt.split('\n').map(l => l.trim()).filter(l => l !== '');
+            let m3u = `#EXTM3U x-tvg-url="${epg}"\n`;
+            let currentGroup = '未分组';
+            let count = 0;
+
+            for (let line of lines) {
+                if (line.includes(',#genre#')) {
+                    currentGroup = line.split(',')[0].trim();
+                    continue;
+                }
+                if (line.includes(',')) {
+                    const parts = line.split(',').map(s => s.trim());
+                    if (parts.length < 2) continue;
+                    const name = parts[0];
+                    const url = parts[1];
+                    if (!url.startsWith('http')) continue;
+
+                    count++;
+                    const tvgId = name.replace(/[^\w\u4e00-\u9fa5]/g, '');
+                    // 台标使用新的地址模版 https://logo1.indevs.in/{name}.png
+                    // 对name进行编码，确保URL安全，但保留中文会以百分比形式，通常没问题，也可以直接拼接
+                    // 为了更好的兼容性，使用encodeURIComponent编码文件名部分
+                    const logo = addLogo ? ` tvg-logo="https://logo1.indevs.in/${encodeURIComponent(name)}.png"` : '';
+                    const groupAttr = keepGroup ? ` group-title="${currentGroup}"` : '';
+
+                    m3u += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${name}"${logo}${groupAttr},${name}\n${url}\n`;
+                }
+            }
+            return { content: m3u, count };
+        }
+
+        function convertM3UToTxt(m3u) {
+            const keepGroup = document.getElementById('keepGroup').checked;
+            const lines = m3u.split('\n').map(l => l.trim()).filter(l => l);
+            let txt = '';
+            let currentGroup = null;
+            let count = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('#EXTINF')) {
+                    const groupMatch = line.match(/group-title="([^"]+)"/);
+                    const group = groupMatch ? groupMatch[1] : '未分组';
+                    const nameMatch = line.match(/,(.+)$/);
+                    const name = nameMatch ? nameMatch[1].trim() : '未知';
+
+                    if (keepGroup && group !== currentGroup) {
+                        if (currentGroup !== null) txt += '\n';
+                        txt += `${group},#genre#\n`;
+                        currentGroup = group;
+                    }
+
+                    if (i+1 < lines.length && lines[i+1].startsWith('http')) {
+                        const url = lines[i+1];
+                        txt += `${name},${url}\n`;
+                        count++;
+                        i++;
+                    }
+                }
+            }
+            return { content: txt.trim(), count };
+        }
+
+        window.copyOutput = function() {
+            const out = document.getElementById('outputEditor');
+            if (!out.value) { showToast('无内容', 'error'); return; }
+            out.select(); document.execCommand('copy');
+            showToast('已复制');
+        };
+        window.downloadFile = function() {
+            const content = document.getElementById('outputEditor').value;
+            if (!content) { showToast('无内容', 'error'); return; }
+            const ext = currentMode==='txt2m3u' ? 'm3u' : 'txt';
+            const blob = new Blob([content], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${currentFileName}.${ext}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
+        window.previewOutput = function() {
+            const content = document.getElementById('outputEditor').value;
+            if (!content) { showToast('无预览', 'error'); return; }
+            const w = window.open('', '_blank');
+            w.document.write(`<pre style="padding:20px;background:#fafafa;">${content.replace(/</g,'&lt;')}</pre>`);
+        };
+
+        // 初始化时设置epg默认值为https://epg1.indevs.in/ (已在input value中体现)
+        // 但以防HTML中未更新，此处再次确保
+        document.getElementById('epgUrl').value = 'https://epg1.indevs.in/';
+        // 示例中也使用新的epg地址 (已经在上方examples中手动改过了)
+        
+        updateUImode();
+        updateCharCount();
+    })();
+</script>
+</body>
+</html>
